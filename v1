@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Performance">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%233b82f6' width='100' height='100' rx='20'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>📊</text></svg>">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiUGVyZm9ybWFuY2UgRGFzaGJvYXJkIiwic2hvcnRfbmFtZSI6IlBlcmZvcm1hbmNlIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwZjE3MmEiLCJ0aGVtZV9jb2xvciI6IiMzYjgyZjYifQ==">
+    <title>Performance Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } = Recharts;
+
+        const PlusIcon = () => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+        );
+
+        const TrendingUpIcon = () => (
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+        );
+
+        const BookIcon = () => (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+        );
+
+        const DumbbellIcon = () => (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+            </svg>
+        );
+
+        const TargetIcon = () => (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        );
+
+        function Dashboard() {
+            const [activities] = useState([
+                { id: 1, name: 'Gelesene Seiten', icon: 'book', color: 'bg-blue-500', unit: 'Seiten' },
+                { id: 2, name: 'Gym-Besuche', icon: 'gym', color: 'bg-green-500', unit: 'Besuche' },
+                { id: 3, name: 'Visualisation', icon: 'target', color: 'bg-purple-500', unit: 'Minuten' },
+            ]);
+
+            const [entries, setEntries] = useState(() => {
+                const saved = localStorage.getItem('performanceEntries');
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+                const today = new Date();
+                const last7Days = [];
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    last7Days.push({
+                        date: dateStr,
+                        activities: {}
+                    });
+                }
+                return last7Days;
+            });
+
+            const [showAddModal, setShowAddModal] = useState(false);
+            const [showEditModal, setShowEditModal] = useState(false);
+            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+            const [selectedActivity, setSelectedActivity] = useState(1);
+            const [entryValue, setEntryValue] = useState('');
+            const [editDate, setEditDate] = useState('');
+            const [editActivity, setEditActivity] = useState(1);
+
+            useEffect(() => {
+                localStorage.setItem('performanceEntries', JSON.stringify(entries));
+            }, [entries]);
+
+            useEffect(() => {
+                const today = new Date().toISOString().split('T')[0];
+                const oldestDate = entries[0]?.date;
+                
+                if (oldestDate) {
+                    const oldestDateObj = new Date(oldestDate);
+                    const todayObj = new Date(today);
+                    const daysDiff = Math.floor((todayObj - oldestDateObj) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysDiff > 6) {
+                        setEntries(prev => {
+                            const newEntries = [...prev];
+                            while (newEntries.length > 0) {
+                                const firstDate = new Date(newEntries[0].date);
+                                const diff = Math.floor((todayObj - firstDate) / (1000 * 60 * 60 * 24));
+                                if (diff > 6) {
+                                    newEntries.shift();
+                                } else {
+                                    break;
+                                }
+                            }
+                            
+                            for (let i = newEntries.length; i < 7; i++) {
+                                const date = new Date(today);
+                                date.setDate(date.getDate() - (6 - i));
+                                newEntries.push({
+                                    date: date.toISOString().split('T')[0],
+                                    activities: {}
+                                });
+                            }
+                            
+                            return newEntries;
+                        });
+                    }
+                }
+            }, []);
+
+            const addEntry = () => {
+                if (!entryValue || isNaN(entryValue)) return;
+
+                setEntries(prev => {
+                    const newEntries = [...prev];
+                    let dateIndex = newEntries.findIndex(e => e.date === selectedDate);
+                    
+                    if (dateIndex === -1) {
+                        newEntries.push({
+                            date: selectedDate,
+                            activities: { [selectedActivity]: parseFloat(entryValue) }
+                        });
+                        newEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    } else {
+                        newEntries[dateIndex] = {
+                            ...newEntries[dateIndex],
+                            activities: {
+                                ...newEntries[dateIndex].activities,
+                                [selectedActivity]: (newEntries[dateIndex].activities[selectedActivity] || 0) + parseFloat(entryValue)
+                            }
+                        };
+                    }
+                    
+                    return newEntries;
+                });
+
+                setEntryValue('');
+                setShowAddModal(false);
+            };
+
+            const updateEntry = () => {
+                if (!entryValue || isNaN(entryValue)) return;
+
+                setEntries(prev => {
+                    const newEntries = [...prev];
+                    const dateIndex = newEntries.findIndex(e => e.date === editDate);
+                    
+                    if (dateIndex !== -1) {
+                        newEntries[dateIndex] = {
+                            ...newEntries[dateIndex],
+                            activities: {
+                                ...newEntries[dateIndex].activities,
+                                [editActivity]: parseFloat(entryValue)
+                            }
+                        };
+                    }
+                    
+                    return newEntries;
+                });
+
+                setEntryValue('');
+                setShowEditModal(false);
+            };
+
+            const deleteEntry = () => {
+                setEntries(prev => {
+                    const newEntries = [...prev];
+                    const dateIndex = newEntries.findIndex(e => e.date === editDate);
+                    
+                    if (dateIndex !== -1) {
+                        const updatedActivities = { ...newEntries[dateIndex].activities };
+                        delete updatedActivities[editActivity];
+                        newEntries[dateIndex] = {
+                            ...newEntries[dateIndex],
+                            activities: updatedActivities
+                        };
+                    }
+                    
+                    return newEntries;
+                });
+
+                setEntryValue('');
+                setShowEditModal(false);
+            };
+
+            const openEditModal = (date, activityId) => {
+                const entry = entries.find(e => e.date === date);
+                if (entry && entry.activities[activityId]) {
+                    setEditDate(date);
+                    setEditActivity(activityId);
+                    setEntryValue(entry.activities[activityId].toString());
+                    setShowEditModal(true);
+                }
+            };
+
+            const getChartData = (activityId) => {
+                return entries.map(entry => ({
+                    date: new Date(entry.date).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+                    value: entry.activities[activityId] || 0
+                }));
+            };
+
+            const getTotalForActivity = (activityId) => {
+                return entries.reduce((sum, entry) => sum + (entry.activities[activityId] || 0), 0);
+            };
+
+            const getAverageForActivity = (activityId) => {
+                const total = getTotalForActivity(activityId);
+                return (total / 7).toFixed(1);
+            };
+
+            const getIconComponent = (iconType) => {
+                switch(iconType) {
+                    case 'book': return <BookIcon />;
+                    case 'gym': return <DumbbellIcon />;
+                    case 'target': return <TargetIcon />;
+                    default: return <TargetIcon />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 pb-20">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="mb-6">
+                            <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                                <TrendingUpIcon />
+                                Performance Dashboard
+                            </h1>
+                            <p className="text-slate-400">Letzte 7 Tage im Überblick</p>
+                        </div>
+
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="mb-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors shadow-lg"
+                        >
+                            <PlusIcon />
+                            Eintrag hinzufügen
+                        </button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                            {activities.map(activity => (
+                                <div key={activity.id} className="bg-slate-800 rounded-xl p-5 shadow-xl border border-slate-700">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`${activity.color} p-3 rounded-lg text-white`}>
+                                                {getIconComponent(activity.icon)}
+                                            </div>
+                                            <h3 className="text-white font-semibold text-base">{activity.name}</h3>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2 mb-4">
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-slate-400 text-sm">Gesamt (7 Tage)</span>
+                                            <span className="text-white text-2xl font-bold">
+                                                {getTotalForActivity(activity.id)} {activity.unit}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-slate-400 text-sm">Durchschnitt/Tag</span>
+                                            <span className="text-blue-400 text-lg font-semibold">
+                                                {getAverageForActivity(activity.id)} {activity.unit}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-36">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={getChartData(activity.id)}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                                                <XAxis 
+                                                    dataKey="date" 
+                                                    stroke="#94a3b8" 
+                                                    style={{ fontSize: '9px' }}
+                                                />
+                                                <YAxis stroke="#94a3b8" style={{ fontSize: '9px' }} />
+                                                <Tooltip 
+                                                    contentStyle={{ 
+                                                        backgroundColor: '#1e293b', 
+                                                        border: '1px solid #334155',
+                                                        borderRadius: '8px',
+                                                        color: '#fff'
+                                                    }}
+                                                />
+                                                <Bar dataKey="value" fill={activity.color.includes('blue') ? '#3b82f6' : activity.color.includes('green') ? '#10b981' : '#a855f7'} radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="bg-slate-800 rounded-xl p-5 shadow-xl border border-slate-700">
+                            <h3 className="text-white font-semibold text-lg mb-4">Letzte Einträge</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-700">
+                                            <th className="text-left text-slate-400 py-3 px-2 text-sm">Datum</th>
+                                            <th className="text-left text-slate-400 py-3 px-2 text-sm">Aktivität</th>
+                                            <th className="text-right text-slate-400 py-3 px-2 text-sm">Wert</th>
+                                            <th className="text-right text-slate-400 py-3 px-2 text-sm">Aktion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {entries.slice().reverse().map(entry => 
+                                            Object.keys(entry.activities).map(activityId => {
+                                                const activity = activities.find(a => a.id === Number(activityId));
+                                                if (!activity) return null;
+                                                return (
+                                                    <tr key={`${entry.date}-${activityId}`} className="border-b border-slate-700">
+                                                        <td className="py-3 px-2 text-slate-300 text-sm">
+                                                            {new Date(entry.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+                                                        </td>
+                                                        <td className="py-3 px-2 text-slate-300 text-sm">{activity.name}</td>
+                                                        <td className="py-3 px-2 text-right text-white font-semibold text-sm">
+                                                            {entry.activities[activityId]} {activity.unit}
+                                                        </td>
+                                                        <td className="py-3 px-2 text-right">
+                                                            <button
+                                                                onClick={() => openEditModal(entry.date, Number(activityId))}
+                                                                className="text-blue-400 hover:text-blue-300 active:text-blue-500 text-sm"
+                                                            >
+                                                                Bearbeiten
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ).filter(Boolean)}
+                                        {entries.every(e => Object.keys(e.activities).length === 0) && (
+                                            <tr>
+                                                <td colSpan="4" className="py-8 text-center text-slate-500">
+                                                    Noch keine Einträge vorhanden
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {showEditModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+                                    <h3 className="text-white text-xl font-semibold mb-4">Eintrag bearbeiten</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">Datum</label>
+                                            <input
+                                                type="text"
+                                                value={new Date(editDate).toLocaleDateString('de-DE')}
+                                                disabled
+                                                className="w-full bg-slate-700 text-slate-400 px-4 py-2 rounded-lg border border-slate-600"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">Aktivität</label>
+                                            <input
+                                                type="text"
+                                                value={activities.find(a => a.id === editActivity)?.name}
+                                                disabled
+                                                className="w-full bg-slate-700 text-slate-400 px-4 py-2 rounded-lg border border-slate-600"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">
+                                                Wert ({activities.find(a => a.id === editActivity)?.unit})
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={entryValue}
+                                                onChange={(e) => setEntryValue(e.target.value)}
+                                                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            onClick={updateEntry}
+                                            className="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-2 rounded-lg transition-colors"
+                                        >
+                                            Speichern
+                                        </button>
+                                        <button
+                                            onClick={deleteEntry}
+                                            className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white py-2 rounded-lg transition-colors"
+                                        >
+                                            Löschen
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowEditModal(false);
+                                                setEntryValue('');
+                                            }}
+                                            className="flex-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white py-2 rounded-lg transition-colors"
+                                        >
+                                            Abbrechen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showAddModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-slate-700">
+                                    <h3 className="text-white text-xl font-semibold mb-4">Neuer Eintrag</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">Datum</label>
+                                            <input
+                                                type="date"
+                                                value={selectedDate}
+                                                onChange={(e) => setSelectedDate(e.target.value)}
+                                                max={new Date().toISOString().split('T')[0]}
+                                                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">Aktivität</label>
+                                            <select
+                                                value={selectedActivity}
+                                                onChange={(e) => setSelectedActivity(Number(e.target.value))}
+                                                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                            >
+                                                {activities.map(activity => (
+                                                    <option key={activity.id} value={activity.id}>{activity.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-slate-300 text-sm mb-2 block">
+                                                Wert ({activities.find(a => a.id === selectedActivity)?.unit})
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={entryValue}
+                                                onChange={(e) => setEntryValue(e.target.value)}
+                                                placeholder="z.B. 50"
+                                                className="w-full bg-slate-700 text-white px-4 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 mt-6">
+                                        <button
+                                            onClick={addEntry}
+                                            className="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-2 rounded-lg transition-colors"
+                                        >
+                                            Hinzufügen
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setShowAddModal(false);
+                                                setEntryValue('');
+                                            }}
+                                            className="flex-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white py-2 rounded-lg transition-colors"
+                                        >
+                                            Abbrechen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
